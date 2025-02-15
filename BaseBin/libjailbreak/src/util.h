@@ -40,6 +40,16 @@ uint64_t kptr_sign(uint64_t kaddr, uint64_t pointer, uint16_t salt);
 void proc_allow_all_syscalls(uint64_t proc);
 void proc_remove_msg_filter(uint64_t proc);
 
+uint64_t proc_lookup_vnode(uint64_t proc, int fd);
+uint64_t get_vnode_for_path(const char *path);
+void vnode_leak(uint64_t vnode);
+void vnode_leak_for_path(const char *path);
+void vnode_unleak(uint64_t vnode);
+void vnode_unleak_for_path(const char *path);
+
+int namecache_switcheroo(const char *src, const char *dst, uint64_t *bk);
+int namecache_undo_switcheroo(uint64_t vnodeBackup);
+
 void killall(const char *executablePathToKill, bool softly);
 int libarchive_unarchive(const char *fileToExtract, const char *extractionPath);
 

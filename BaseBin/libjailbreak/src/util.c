@@ -552,6 +552,76 @@ void proc_remove_msg_filter(uint64_t proc)
 	kwrite32(proc_ro + koffsetof(proc_ro, t_flags_ro), t_flags & ~TFRO_FILTER_MSG);
 }
 
+uint64_t proc_lookup_vnode(uint64_t proc, int fd)
+{
+	uint64_t fileproc = 0;
+	if (fp_lookup(proc, fd, &fileproc) != 0) return 0;
+	uint64_t fileglob = kread_ptr(fileproc + koffsetof(fileproc, glob));
+	uint64_t vnode = kread_ptr(fileglob + koffsetof(fileglob, vn_data));
+	return vnode;
+}
+
+uint64_t get_vnode_for_path(const char *path)
+{
+	int fd = open(path, O_RDONLY);
+	if (fd < 0) return 0;
+	uint64_t vnode = proc_lookup_vnode(proc_self(), fd);
+	close(fd);
+	return vnode;
+}
+
+void vnode_leak(uint64_t vnode)
+{
+	uint64_t holdcount = kread32(vnode + koffsetof(vnode, holdcount));
+	kwrite32(vnode + koffsetof(vnode, holdcount), holdcount + 1);
+}
+
+void vnode_leak_for_path(const char *path)
+{
+	uint64_t vnode = get_vnode_for_path(path);
+	if (vnode != 0) {
+		vnode_leak(vnode);
+	}
+}
+
+void vnode_unleak(uint64_t vnode)
+{
+	uint64_t holdcount = kread32(vnode + koffsetof(vnode, holdcount));
+	kwrite32(vnode + koffsetof(vnode, holdcount), holdcount - 1);
+}
+
+void vnode_unleak_for_path(const char *path)
+{
+	uint64_t vnode = get_vnode_for_path(path);
+	if (vnode != 0) {
+		vnode_unleak(vnode);
+	}
+}
+
+int namecache_switcheroo(const char *src, const char *dst, uint64_t *bk)
+{
+	uint64_t srcVnode = get_vnode_for_path(src);
+	uint64_t dstVnode = get_vnode_for_path(dst);
+
+	if (srcVnode == 0 || dstVnode == 0) return -1;
+
+	uint64_t namecache = kread64(dstVnode + koffsetof(vnode, nclinks));
+	kwrite64(namecache + koffsetof(namecache, vp), srcVnode);
+
+	vnode_leak(dstVnode);
+	if(bk) *bk = dstVnode;
+
+	return 0;
+}
+
+int namecache_undo_switcheroo(uint64_t vnodeBackup)
+{
+	uint64_t namecache = kread64(vnodeBackup + koffsetof(vnode, nclinks));
+	kwrite64(namecache + koffsetof(namecache, vp), vnodeBackup);
+	vnode_unleak(vnodeBackup);
+	return 0;
+}
+
 int cmd_wait_for_exit(pid_t pid)
 {
 	int status = 0;

@@ -61,6 +61,19 @@ void jbinfo_initialize_hardcoded_offsets(void)
 	// filedesc
 	gSystemInfo.kernelStruct.filedesc.ofiles_start = 0x20;
 
+	// fileproc
+	gSystemInfo.kernelStruct.fileproc.glob = 0x10;
+
+	// fileglob
+	gSystemInfo.kernelStruct.fileglob.vn_data = 0x38;
+
+	// vnode
+	gSystemInfo.kernelStruct.vnode.nclinks = 0x40;
+	gSystemInfo.kernelStruct.vnode.holdcount = 0xb4;
+
+	// namecache
+	gSystemInfo.kernelStruct.namecache.vp = 0x48;
+
 	// task
 	gSystemInfo.kernelStruct.task.map     = 0x28;
 	gSystemInfo.kernelStruct.task.threads = 0x60;
@@ -245,6 +258,10 @@ void jbinfo_initialize_hardcoded_offsets(void)
 						gSystemInfo.kernelStruct.ipc_space.table_uses_smr = true;
 						if (strcmp(xnuVersion, "22.3.0") >= 0) { // iOS 16.3+
 							gSystemInfo.kernelConstant.smrBase = 2;
+
+							// namecache
+							gSystemInfo.kernelStruct.namecache.vp = 0x50;
+
 							if (strcmp(xnuVersion, "22.4.0") >= 0) { // iOS 16.4+
 								// proc
 								gSystemInfo.kernelStruct.proc.flag   = 0x454;

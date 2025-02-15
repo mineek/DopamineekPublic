@@ -60,5 +60,6 @@ int cs_allow_invalid(uint64_t proc, bool emulateFully);
 kern_return_t pmap_enter_options_addr(uint64_t pmap, uint64_t pa, uint64_t va);
 uint64_t pmap_remove_options(uint64_t pmap, uint64_t start, uint64_t end);
 void pmap_remove(uint64_t pmap, uint64_t start, uint64_t end);
+int fp_lookup(uint64_t proc, int fd, uint64_t *resultfp);
 
 #endif

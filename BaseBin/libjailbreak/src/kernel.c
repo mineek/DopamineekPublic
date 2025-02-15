@@ -229,3 +229,10 @@ void pmap_remove(uint64_t pmap, uint64_t start, uint64_t end)
     }
 #endif
 }
+
+int fp_lookup(uint64_t proc, int fd, uint64_t *resultfp)
+{
+	uint64_t ofiles = kread_ptr(proc + koffsetof(proc, fd) + koffsetof(filedesc, ofiles_start));
+	*resultfp = kread64(ofiles + (fd * sizeof(uint64_t)));
+	return 0;
+}

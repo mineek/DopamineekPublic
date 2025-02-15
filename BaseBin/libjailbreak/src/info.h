@@ -30,6 +30,7 @@ struct system_info {
 	struct {
 		uint64_t usesPACBypass;
 		char *rootPath;
+		uint64_t dyldVnodeBackup;
 	} jailbreakInfo;
 
 	struct {
@@ -125,6 +126,23 @@ struct system_info {
 		struct {
 			uint64_t ofiles_start;
 		} filedesc;
+
+		struct {
+			uint32_t glob;
+		} fileproc;
+
+		struct {
+			uint32_t vn_data;
+		} fileglob;
+
+		struct {
+			uint32_t nclinks;
+			uint32_t holdcount;
+		} vnode;
+
+		struct {
+			uint32_t vp;
+		} namecache;
 
 		struct {
 			uint32_t uid;
@@ -247,7 +265,8 @@ extern struct system_info gSystemInfo;
 
 #define JAILBREAK_INFO_ITERATE(ctx, iterator) \
 	iterator(ctx, jailbreakInfo.usesPACBypass); \
-	iterator(ctx, jailbreakInfo.rootPath);
+	iterator(ctx, jailbreakInfo.rootPath); \
+	iterator(ctx, jailbreakInfo.dyldVnodeBackup);
 
 #define JAILBREAK_SETTINGS_ITERATE(ctx, iterator) \
 	iterator(ctx, jailbreakSettings.markAppsAsDebugged); \
@@ -330,6 +349,15 @@ extern struct system_info gSystemInfo;
 	iterator(ctx, kernelStruct.proc_ro.t_flags_ro); \
 	\
 	iterator(ctx, kernelStruct.filedesc.ofiles_start); \
+	\
+	iterator(ctx, kernelStruct.fileproc.glob); \
+	\
+	iterator(ctx, kernelStruct.fileglob.vn_data); \
+	\
+	iterator(ctx, kernelStruct.vnode.nclinks); \
+	iterator(ctx, kernelStruct.vnode.holdcount); \
+	\
+	iterator(ctx, kernelStruct.namecache.vp); \
 	\
 	iterator(ctx, kernelStruct.ucred.uid); \
 	iterator(ctx, kernelStruct.ucred.ruid); \
