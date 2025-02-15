@@ -301,6 +301,8 @@ __attribute__((constructor)) static void initializer(void)
 		}
 	}
 
+	gHookDylibPath = strdup(JBROOT_PATH("/basebin/systemhook.dylib"));
+
 	// Unset DYLD_INSERT_LIBRARIES, but only if systemhook itself is the only thing contained in it
 	// Feeable attempt at making jailbreak detection harder
 	const char *dyldInsertLibraries = getenv("DYLD_INSERT_LIBRARIES");

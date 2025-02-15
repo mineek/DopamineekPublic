@@ -13,6 +13,8 @@
 #include <libjailbreak/jbclient_xpc.h>
 #include <libjailbreak/jbserver_domains.h>
 
+const char *gHookDylibPath = NULL;
+
 bool string_has_prefix(const char *str, const char* prefix)
 {
 	if (!str || !prefix) {
@@ -99,7 +101,7 @@ static int spawn_exec_hook_common(const char *path,
 									   double jetsamMultiplier,
 									    int (^orig)(char *const envp[restrict]))
 {
-	if (!path) {
+	if (!path || !HOOK_DYLIB_PATH) {
 		return orig(envp);
 	}
 

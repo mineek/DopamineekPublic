@@ -169,5 +169,6 @@ int __posix_spawn_hook(pid_t *restrict pid, const char *restrict path,
 
 void initSpawnHooks(void)
 {
+	gHookDylibPath = strdup(JBROOT_PATH("/basebin/systemhook.dylib"));
 	MSHookFunction(&__posix_spawn, (void *)__posix_spawn_hook, NULL);
 }
