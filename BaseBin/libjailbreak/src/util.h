@@ -48,7 +48,11 @@ void vnode_unleak(uint64_t vnode);
 void vnode_unleak_for_path(const char *path);
 
 int namecache_switcheroo(const char *src, const char *dst, uint64_t *bk);
-int namecache_undo_switcheroo(uint64_t vnodeBackup);
+int namecache_undo_switcheroo(const char *src, uint64_t vnodeBackup);
+
+int apply_dyld_switcheroo(void);
+int reapply_dyld_switcheroo_if_needed(void);
+int revert_dyld_switcheroo(void);
 
 void killall(const char *executablePathToKill, bool softly);
 int libarchive_unarchive(const char *fileToExtract, const char *extractionPath);

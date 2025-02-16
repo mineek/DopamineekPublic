@@ -79,21 +79,13 @@ __attribute__((constructor)) static void initializer(void)
 	initIPCHooks();
 	initJetsamHook();
 
-	if (getenv("DOPAMINE_IS_HIDDEN") != 0) {
-		// If the jailbreak is currently hidden, fakelib had to be mounted again before the userspace reboot
-		// Now that the userspace reboot is over, we can unmount it again
-
-		// Just like when we mount it inside the posix_spawn hook, the jbserver is not up at this point in time
-		// So we need to host our own here again, just so that jbctl can talk to it
-		mach_port_t serverPort = jbserver_local_start();
-		jbctl_earlyboot(serverPort, "internal", "fakelib", "unmount", NULL);
-		jbserver_local_stop();
+	if (jbinfo(isHidden)) {
+		// If the jailbreak is currently hidden, dyld had to be redirected again before the userspace reboot
+		// Now that the userspace reboot is over, we can revert that again
+		revert_dyld_switcheroo();
 
 		// Also disable the systemwide domain again
 		systemwide_domain_set_enabled(false);
-
-		// No need to keep this around
-		unsetenv("DOPAMINE_IS_HIDDEN");
 	}
 
 	// This will ensure launchdhook is always reinjected after userspace reboots

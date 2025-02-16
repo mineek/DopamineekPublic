@@ -68,8 +68,9 @@ void jbinfo_initialize_hardcoded_offsets(void)
 	gSystemInfo.kernelStruct.fileglob.vn_data = 0x38;
 
 	// vnode
-	gSystemInfo.kernelStruct.vnode.nclinks = 0x40;
-	gSystemInfo.kernelStruct.vnode.holdcount = 0xb4;
+	gSystemInfo.kernelStruct.vnode.nclinks   = 0x40;
+	gSystemInfo.kernelStruct.vnode.usecount  = 0x60;
+	gSystemInfo.kernelStruct.vnode.id        = 0x74;
 
 	// namecache
 	gSystemInfo.kernelStruct.namecache.vp = 0x48;
@@ -230,6 +231,9 @@ void jbinfo_initialize_hardcoded_offsets(void)
 					// vm_map
 					gSystemInfo.kernelStruct.vm_map.flags = 0xB4;
 
+					// vnode
+					gSystemInfo.kernelStruct.vnode.holdcount = 0xb4;
+
 					// trustcache
 					gSystemInfo.kernelStruct.trustcache.nextptr = 0x0;
 					gSystemInfo.kernelStruct.trustcache.prevptr = 0x8;
@@ -259,13 +263,14 @@ void jbinfo_initialize_hardcoded_offsets(void)
 						if (strcmp(xnuVersion, "22.3.0") >= 0) { // iOS 16.3+
 							gSystemInfo.kernelConstant.smrBase = 2;
 
-							// namecache
-							gSystemInfo.kernelStruct.namecache.vp = 0x50;
-
 							if (strcmp(xnuVersion, "22.4.0") >= 0) { // iOS 16.4+
 								// proc
 								gSystemInfo.kernelStruct.proc.flag   = 0x454;
 								gSystemInfo.kernelStruct.proc.textvp = 0x548;
+
+								// namecache
+								gSystemInfo.kernelStruct.namecache.vid = 0x40;
+								gSystemInfo.kernelStruct.namecache.vp  = 0x50;
 
 #ifdef __arm64e__
 								// pmap_cs_code_directory

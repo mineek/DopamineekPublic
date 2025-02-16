@@ -495,23 +495,6 @@ int reboot3(uint64_t flags, ...);
     }
 }
 
-- (BOOL)isFakelibMounted
-{
-    struct statfs fsb;
-    if (statfs("/usr/lib", &fsb) != 0) return NO;
-    return strcmp(fsb.f_mntonname, "/usr/lib") == 0;
-}
-
-- (int)setFakelibMounted:(BOOL)mounted
-{
-    int r = 0;
-    if (mounted != [self isFakelibMounted]) {
-        const char *arg = mounted ? "mount" : "unmount";
-        r = exec_cmd(JBROOT_PATH("/basebin/jbctl"), "internal", "fakelib", arg, NULL);
-    }
-    return r;
-}
-
 - (int)setPrivatePrebootProtected:(BOOL)protected
 {
     const char *arg = protected ? "activate" : "deactivate";
@@ -537,16 +520,14 @@ int reboot3(uint64_t flags, ...);
                 if ([self isJailbroken]) {
                     [self unregisterJailbreakApps];
                     [self setPrivatePrebootProtected:NO];
-                    [self setFakelibMounted:NO];
-                    jbclient_platform_set_systemwide_domain_enabled(false);
+                    jbclient_platform_set_jailbreak_hidden(true);
                 }
                 [[NSFileManager defaultManager] removeItemAtPath:@"/var/jb" error:nil];
             }
             else {
                 [[NSFileManager defaultManager] createSymbolicLinkAtPath:@"/var/jb" withDestinationPath:JBROOT_PATH(@"/") error:nil];
                 if ([self isJailbroken]) {
-                    jbclient_platform_set_systemwide_domain_enabled(true);
-                    [self setFakelibMounted:YES];
+                    jbclient_platform_set_jailbreak_hidden(false);
                     [self setPrivatePrebootProtected:YES];
                     [self refreshJailbreakApps];
                 }

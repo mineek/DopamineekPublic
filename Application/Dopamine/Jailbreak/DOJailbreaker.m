@@ -57,7 +57,7 @@ typedef NS_ENUM(NSInteger, JBErrorCode) {
     JBErrorCodeFailedBasebinTrustcache       = -10,
     JBErrorCodeFailedLaunchdInjection        = -11,
     JBErrorCodeFailedInitProtection          = -12,
-    JBErrorCodeFailedInitFakeLib             = -13,
+    JBErrorCodeFailedApplyDyldPatch          = -13,
     JBErrorCodeFailedDuplicateApps           = -14,
 };
 
@@ -324,6 +324,36 @@ void *boomerang_server(struct boomerang_info *info)
     return NULL;
 }
 
+- (NSError *)applyDyldPatch
+{
+    int r = basebin_generate(false);
+    if (r != 0) {
+        return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedApplyDyldPatch userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Generating basebin failed with error: %d", r]}];
+    }
+
+    cdhash_t *cdhashes = NULL;
+    uint32_t cdhashesCount = 0;
+    file_collect_untrusted_cdhashes_by_path(JBROOT_PATH("/basebin/gen/dyld"), &cdhashes, &cdhashesCount);
+    if (cdhashesCount != 1) return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedApplyDyldPatch userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Got unexpected number of cdhashes for dyld???: %d", cdhashesCount]}];
+    
+    trustcache_file_v1 *dyldTCFile = NULL;
+    r = trustcache_file_build_from_cdhashes(cdhashes, cdhashesCount, &dyldTCFile);
+    free(cdhashes);
+    if (r == 0) {
+        int r = trustcache_file_upload_with_uuid(dyldTCFile, DYLD_TRUSTCACHE_UUID);
+        if (r != 0) return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedApplyDyldPatch userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed to upload dyld trustcache: %d", r]}];
+        free(dyldTCFile);
+    }
+    else {
+        return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedApplyDyldPatch userInfo:@{NSLocalizedDescriptionKey : @"Failed to build dyld trustcache"}];
+    }
+
+    r = apply_dyld_switcheroo();
+    if (r != 0) return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedApplyDyldPatch userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed to apply switcheroo on dyld vnode: %d", r]}];
+
+    return nil;
+}
+
 - (NSError *)injectLaunchdHook
 {
     // Host a boomerang server that will be used by launchdhook to get the jailbreak primitives from this app
@@ -368,6 +398,9 @@ void *boomerang_server(struct boomerang_info *info)
     dispatch_semaphore_wait(info.boomerangDone, DISPATCH_TIME_FOREVER);
     mach_port_deallocate(mach_task_self(), serverPort);
 
+    // Now that dyld is patched and jbserver is up, we want to make systemhook inject into any binary we spawn
+    setenv("DYLD_INSERT_LIBRARIES", JBROOT_PATH("/basebin/systemhook.dylib"), 1);
+
     return nil;
 }
 
@@ -377,40 +410,6 @@ void *boomerang_server(struct boomerang_info *info)
     if (r != 0) {
         return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedInitProtection userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed initializing protection with error: %d", r]}];
     }
-    return nil;
-}
-
-- (NSError *)createFakeLib
-{
-    int r = basebin_generate(false);
-    if (r != 0) {
-        return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedInitFakeLib userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Creating fakelib failed with error: %d", r]}];
-    }
-
-    cdhash_t *cdhashes = NULL;
-    uint32_t cdhashesCount = 0;
-    file_collect_untrusted_cdhashes_by_path(JBROOT_PATH("/basebin/.fakelib/dyld"), &cdhashes, &cdhashesCount);
-    if (cdhashesCount != 1) return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedInitFakeLib userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Got unexpected number of cdhashes for dyld???: %d", cdhashesCount]}];
-    
-    trustcache_file_v1 *dyldTCFile = NULL;
-    r = trustcache_file_build_from_cdhashes(cdhashes, cdhashesCount, &dyldTCFile);
-    free(cdhashes);
-    if (r == 0) {
-        int r = trustcache_file_upload_with_uuid(dyldTCFile, DYLD_TRUSTCACHE_UUID);
-        if (r != 0) return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedInitFakeLib userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed to upload dyld trustcache: %d", r]}];
-        free(dyldTCFile);
-    }
-    else {
-        return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedInitFakeLib userInfo:@{NSLocalizedDescriptionKey : @"Failed to build dyld trustcache"}];
-    }
-    
-    r = [[DOEnvironmentManager sharedManager] setFakelibMounted:YES];
-    if (r != 0) {
-        return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedInitFakeLib userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Mounting fakelib failed with error: %d", r]}];
-    }
-    
-    // Now that fakelib is up, we want to make systemhook inject into any binary we spawn
-    setenv("DYLD_INSERT_LIBRARIES", "/usr/lib/systemhook.dylib", 1);
     return nil;
 }
 
@@ -547,6 +546,10 @@ void *boomerang_server(struct boomerang_info *info)
     [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Loading BaseBin TrustCache") debug:NO];
     *errOut = [self loadBasebinTrustcache];
     if (*errOut) return;
+
+    [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Patching dyld") debug:NO];
+    *errOut = [self applyDyldPatch];
+    if (*errOut) return;
     
     [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Initializing Environment") debug:NO];
     *errOut = [self injectLaunchdHook];
@@ -558,11 +561,7 @@ void *boomerang_server(struct boomerang_info *info)
     [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Initializing Protection") debug:NO];
     *errOut = [self applyProtection];
     if (*errOut) return;
-    
-    [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Applying Bind Mount") debug:NO];
-    *errOut = [self createFakeLib];
-    if (*errOut) return;
-    
+
     // Unsandbox iconservicesagent so that app icons can work
     exec_cmd_trusted(JBROOT_PATH("/usr/bin/killall"), "-9", "iconservicesagent", NULL);
     

@@ -90,7 +90,7 @@ int __execve_orig(const char *path, char *const argv[], char *const envp[])
 }
 
 // 1. Ensure the binary about to be spawned and all of it's dependencies are trust cached
-// 2. Insert "DYLD_INSERT_LIBRARIES=/usr/lib/systemhook.dylib" into all binaries spawned
+// 2. Insert "DYLD_INSERT_LIBRARIES=<JBROOT>/basebin/systemhook.dylib" into all binaries spawned
 // 3. Increase Jetsam limit to more sane value (Multipler defined as JETSAM_MULTIPLIER)
 
 static int spawn_exec_hook_common(const char *path,

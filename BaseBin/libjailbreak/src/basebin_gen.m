@@ -91,39 +91,22 @@ int merge_dyldhook(NSString *originalDyldPath, NSString *outPath)
 
 int basebin_generate(bool comingFromJBUpdate)
 {
-	NSString *basebinPath    = JBROOT_PATH(@"/basebin");
-	NSString *genPath        = JBROOT_PATH(@"/basebin/gen");
-	NSString *fakelibPath    = JBROOT_PATH(@"/basebin/.fakelib");
-	NSString *systemhookPath = JBROOT_PATH(@"/basebin/systemhook.dylib");
+	NSString *dopamineVersion = [NSString stringWithContentsOfFile:JBROOT_PATH(@"/basebin/.version") encoding:NSUTF8StringEncoding error:nil];
+	if (!dopamineVersion) return 1;
 
+	if (comingFromJBUpdate) {
+		revert_dyld_switcheroo();
+	}
+
+	NSString *genPath = JBROOT_PATH(@"/basebin/gen");
 	[[NSFileManager defaultManager] createDirectoryAtPath:genPath withIntermediateDirectories:YES attributes:nil error:nil];
-
-	NSString *fakelibDyldPath        = [fakelibPath stringByAppendingPathComponent:@"dyld"];
-	NSString *fakelibSystemHookPath  = [fakelibPath stringByAppendingPathComponent:@"systemhook.dylib"];
 
 	NSString *dyldOrigPath     = [genPath stringByAppendingPathComponent:@"dyld.orig"];
 	NSString *dyldInflightPath = [genPath stringByAppendingPathComponent:@"dyld.inflight"];
 	NSString *dyldOldPath      = [genPath stringByAppendingPathComponent:@"dyld.old"];
 	NSString *dyldPatchedPath  = [genPath stringByAppendingPathComponent:@"dyld"];
 
-	NSString *dopamineVersion = [NSString stringWithContentsOfFile:JBROOT_PATH(@"/basebin/.version") encoding:NSUTF8StringEncoding error:nil];
-	if (!dopamineVersion) return 1;
-
 	if (!comingFromJBUpdate) {
-		// Copy /usr/lib to /var/jb/basebin/.fakelib
-		[[NSFileManager defaultManager] removeItemAtPath:fakelibPath error:nil];
-		[[NSFileManager defaultManager] createDirectoryAtPath:fakelibPath withIntermediateDirectories:YES attributes:nil error:nil];
-		carbonCopy(@"/usr/lib", fakelibPath);
-
-		// Delete the dyld inside .fakelib
-		[[NSFileManager defaultManager] removeItemAtPath:fakelibDyldPath error:nil];
-
-		// Symlink .fakelib/dyld -> /var/jb/basebin/gen/dyld
-		[[NSFileManager defaultManager] createSymbolicLinkAtPath:fakelibDyldPath withDestinationPath:dyldPatchedPath error:nil];
-
-		// Symlink .fakelib/systemhook.dylib -> /var/jb/basebin/systemhook.dylib
-		[[NSFileManager defaultManager] createSymbolicLinkAtPath:fakelibSystemHookPath withDestinationPath:systemhookPath error:nil];
-
 		// Backup original dyld
 		carbonCopy(@"/usr/lib/dyld", dyldOrigPath);
 	}
@@ -148,5 +131,10 @@ int basebin_generate(bool comingFromJBUpdate)
 	}
 
 	[[NSFileManager defaultManager] moveItemAtPath:dyldInflightPath toPath:dyldPatchedPath error:nil];
+
+	if (comingFromJBUpdate) {
+		apply_dyld_switcheroo();
+	}
+
 	return 0;
 }

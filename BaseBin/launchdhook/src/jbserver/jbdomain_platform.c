@@ -4,8 +4,6 @@
 #include <libjailbreak/codesign.h>
 #include <libjailbreak/libjailbreak.h>
 
-extern void systemwide_domain_set_enabled(bool enabled);
-
 static bool platform_domain_allowed(audit_token_t clientToken)
 {
 	pid_t pid = audit_token_to_pid(clientToken);
@@ -29,6 +27,22 @@ static int platform_stage_jailbreak_update(const char *updateTar)
 		return 0;
 	}
 	return 1;
+}
+
+int platform_domin_set_jailbreak_hidden(bool hidden)
+{
+	gSystemInfo.jailbreakInfo.isHidden = hidden;
+
+	if (hidden) {
+		revert_dyld_switcheroo();
+	}
+	else {
+		apply_dyld_switcheroo();
+	}
+
+	extern void systemwide_domain_set_enabled(bool enabled);
+	systemwide_domain_set_enabled(!hidden);
+	return 0;
 }
 
 struct jbserver_domain gPlatformDomain = {
@@ -60,11 +74,11 @@ struct jbserver_domain gPlatformDomain = {
 				{ 0 },
 			},
 		},
-		// JBS_PLATFORM_SET_SYSTEMWIDE_DOMAIN_ENABLED
+		// JBS_PLATFORM_SET_JAILBREAK_HIDDEN
 		{
-			.handler = systemwide_domain_set_enabled,
+			.handler = platform_domin_set_jailbreak_hidden,
 			.args = (jbserver_arg[]){
-				{ .name = "enabled", .type = JBS_TYPE_BOOL, .out = false },
+				{ .name = "hidden", .type = JBS_TYPE_BOOL, .out = false },
 				{ 0 },
 			},
 		},

@@ -185,7 +185,7 @@ void jbupdate_finalize_stage2(const char *prevVersion, const char *newVersion)
 		// On Dopamine <= 2.3, dyld used to be a file on the fakelib mount
 		// Due to that, the fakelib mount cannot be unmounted, or else the system will panic
 		// Additionally it cannot be modified because bind mounts are weird and won't update correctly
-		// In >= 2.4 dyld is a symlink to elsewhere, which allows it to be updated and the bind mount to be unmounted
+		// In >= 2.4 dyld is is being redirected through the namecache, which removes the requirement for mounting over /usr/lib
 		// But if we're coming from <= 2.3, we have no option other than to reboot the device
 		reboot(0);
 	}
@@ -217,7 +217,7 @@ void jbupdate_finalize_stage2(const char *prevVersion, const char *newVersion)
 	// Update dyld trustcache
 	cdhash_t *cdhashes = NULL;
 	uint32_t cdhashesCount = 0;
-	file_collect_untrusted_cdhashes_by_path(JBROOT_PATH("/basebin/.fakelib/dyld"), &cdhashes, &cdhashesCount);
+	file_collect_untrusted_cdhashes_by_path(JBROOT_PATH("/basebin/gen/dyld"), &cdhashes, &cdhashesCount);
 
 	if (cdhashesCount > 1) {
 		char msg[4000];

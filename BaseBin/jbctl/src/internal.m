@@ -70,27 +70,6 @@ int protection_set_active(bool active)
 	return r;
 }
 
-bool fakelib_is_mounted(void)
-{
-	struct statfs fsb;
-    if (statfs("/usr/lib", &fsb) != 0) return NO;
-    return strcmp(fsb.f_mntonname, "/usr/lib") == 0;
-}
-
-int fakelib_set_mounted(bool mounted)
-{
-	int r = 0;
-	if (mounted != fakelib_is_mounted()) {
-		if (mounted) {
-			r = mount_unsandboxed("bindfs", "/usr/lib", MNT_RDONLY, (void *)JBROOT_PATH("/basebin/.fakelib"));
-		}
-		else {
-			r = unmount_unsandboxed("/usr/lib", MNT_FORCE);
-		}
-	}
-	return r;
-}
-
 int jbctl_handle_internal(const char *command, int argc, char* argv[])
 {
 	if (!strcmp(command, "launchd_stash_port")) {
@@ -148,23 +127,6 @@ int jbctl_handle_internal(const char *command, int argc, char* argv[])
 			}
 
 			return protection_set_active(toSet);
-		}
-		return -1;
-	}
-	else if (!strcmp(command, "fakelib")) {
-		bool toMount = false;
-		if (argc > 1) {
-			if (!strcmp(argv[1], "mount")) {
-				toMount = true;
-			}
-			else if (!strcmp(argv[1], "unmount")) {
-				toMount = false;
-			}
-			else {
-				return -1;
-			}
-
-			return fakelib_set_mounted(toMount);
 		}
 		return -1;
 	}

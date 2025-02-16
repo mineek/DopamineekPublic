@@ -572,8 +572,13 @@ uint64_t get_vnode_for_path(const char *path)
 
 void vnode_leak(uint64_t vnode)
 {
-	uint64_t holdcount = kread32(vnode + koffsetof(vnode, holdcount));
-	kwrite32(vnode + koffsetof(vnode, holdcount), holdcount + 1);
+	uint32_t usecount = kread32(vnode + koffsetof(vnode, usecount));
+	kwrite32(vnode + koffsetof(vnode, usecount), usecount + 10);
+
+	if (koffsetof(vnode, holdcount)) {
+		uint32_t holdcount = kread32(vnode + koffsetof(vnode, holdcount));
+		kwrite32(vnode + koffsetof(vnode, holdcount), holdcount + 3);
+	}
 }
 
 void vnode_leak_for_path(const char *path)
@@ -586,8 +591,15 @@ void vnode_leak_for_path(const char *path)
 
 void vnode_unleak(uint64_t vnode)
 {
-	uint64_t holdcount = kread32(vnode + koffsetof(vnode, holdcount));
-	kwrite32(vnode + koffsetof(vnode, holdcount), holdcount - 1);
+	uint32_t usecount = kread32(vnode + koffsetof(vnode, usecount));
+	kwrite32(vnode + koffsetof(vnode, usecount), usecount - 1);
+
+	if (koffsetof(vnode, holdcount)) {
+		uint32_t holdcount = kread32(vnode + koffsetof(vnode, holdcount));
+		if (holdcount > 0) {
+			kwrite32(vnode + koffsetof(vnode, holdcount), holdcount - 1);
+		}
+	}
 }
 
 void vnode_unleak_for_path(const char *path)
@@ -607,19 +619,60 @@ int namecache_switcheroo(const char *src, const char *dst, uint64_t *bk)
 
 	uint64_t namecache = kread64(dstVnode + koffsetof(vnode, nclinks));
 	kwrite64(namecache + koffsetof(namecache, vp), srcVnode);
+	if (koffsetof(namecache, vid)) {
+		kwrite32(namecache + koffsetof(namecache, vid), kread32(srcVnode + koffsetof(vnode, id)));
+	}
 
 	vnode_leak(dstVnode);
-	if(bk) *bk = dstVnode;
+	vnode_leak(srcVnode); // Leaking this causes unexplainable kernel panic on iOS 16
+	if (bk) *bk = dstVnode;
 
 	return 0;
 }
 
-int namecache_undo_switcheroo(uint64_t vnodeBackup)
+int namecache_undo_switcheroo(const char *src, uint64_t vnodeBackup)
 {
 	uint64_t namecache = kread64(vnodeBackup + koffsetof(vnode, nclinks));
 	kwrite64(namecache + koffsetof(namecache, vp), vnodeBackup);
+	if (koffsetof(namecache, vid)) {
+		kwrite32(namecache + koffsetof(namecache, vid), kread32(vnodeBackup + koffsetof(vnode, id)));
+	}
+
 	vnode_unleak(vnodeBackup);
+	vnode_unleak_for_path(src);
 	return 0;
+}
+
+int apply_dyld_switcheroo(void)
+{
+	if (!jbinfo(dyldVnodeBackup)) {
+		return namecache_switcheroo(JBROOT_PATH("/basebin/gen/dyld"), "/usr/lib/dyld", &gSystemInfo.jailbreakInfo.dyldVnodeBackup);
+	}
+	return -1;
+}
+
+/*int reapply_dyld_switcheroo_if_needed(void)
+{
+	if (jbinfo(isHidden)) return 0;
+
+	char dyldpath[PATH_MAX];
+	realpath("/usr/lib/dyld", dyldpath);
+	if (!strcmp(dyldpath, "/usr/lib/dyld")) {
+		// If realpath returns "/usr/lib/dyld", dyld is back to stock and needs to be redirected again
+		return namecache_switcheroo(JBROOT_PATH("/basebin/gen/dyld"), "/usr/lib/dyld", &gSystemInfo.jailbreakInfo.dyldVnodeBackup);
+	}
+
+	return 0;
+}*/
+
+int revert_dyld_switcheroo(void)
+{
+	if (jbinfo(dyldVnodeBackup)) {
+		int r = namecache_undo_switcheroo(JBROOT_PATH("/basebin/gen/dyld"), jbinfo(dyldVnodeBackup));
+		gSystemInfo.jailbreakInfo.dyldVnodeBackup = 0;
+		return r;
+	}
+	return -1;
 }
 
 int cmd_wait_for_exit(pid_t pid)

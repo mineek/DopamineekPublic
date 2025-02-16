@@ -86,15 +86,15 @@ bool macho_parse_code_signature(MachO *macho, cdhash_t cdhashOut)
 	return isAdhocSigned;
 }
 
-void file_collect_untrusted_cdhashes(int fd, cdhash_t **cdhashesOut, uint32_t *cdhashCountOut)
+int file_collect_untrusted_cdhashes(int fd, cdhash_t **cdhashesOut, uint32_t *cdhashCountOut)
 {
 	MemoryStream *s = file_stream_init_from_file_descriptor(fd, 0, FILE_STREAM_SIZE_AUTO, 0);
-	if (!s) return;
+	if (!s) return 1;
 
 	Fat *fat = fat_init_from_memory_stream(s);
 	if (!fat) {
 		memory_stream_free(s);
-		return;
+		return 2;
 	}
 
 	__block cdhash_t *cdhashes = NULL;
@@ -116,12 +116,14 @@ void file_collect_untrusted_cdhashes(int fd, cdhash_t **cdhashesOut, uint32_t *c
 
 	*cdhashesOut = cdhashes;
 	*cdhashCountOut = cdhashCount;
+	return 0;
 }
 
-void file_collect_untrusted_cdhashes_by_path(const char *path, cdhash_t **cdhashesOut, uint32_t *cdhashCountOut)
+int file_collect_untrusted_cdhashes_by_path(const char *path, cdhash_t **cdhashesOut, uint32_t *cdhashCountOut)
 {
 	int fd = open(path, O_RDONLY);
-	if (fd < 0) return;
-	file_collect_untrusted_cdhashes(fd, cdhashesOut, cdhashCountOut);
+	if (fd < 0) return 3;
+	int r = file_collect_untrusted_cdhashes(fd, cdhashesOut, cdhashCountOut);
 	close(fd);
+	return r;
 }

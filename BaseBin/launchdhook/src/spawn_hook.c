@@ -15,7 +15,6 @@ void abort_with_reason(uint32_t reason_namespace, uint64_t reason_code, const ch
 
 extern int systemwide_trust_file_by_path(const char *path);
 extern int platform_set_process_debugged(uint64_t pid, bool fullyDebugged);
-extern void systemwide_domain_set_enabled(bool enabled);
 
 #define LOG_PROCESS_LAUNCHES 0
 
@@ -24,25 +23,6 @@ extern bool gInEarlyBoot;
 void early_boot_done(void)
 {
 	gInEarlyBoot = false;
-}
-
-void ensure_fakelib_mounted(void)
-{
-	struct statfs fsb;
-    if (statfs("/usr/lib", &fsb) != 0) return;
-    if (strcmp(fsb.f_mntonname, "/usr/lib") != 0) {
-		systemwide_domain_set_enabled(true);
-
-		// The jailbreak server is not reachable at this point in the launchd lifecycle
-		// So we need to host our own, just so that jbctl can talk to it
-		mach_port_t serverPort = jbserver_local_start();
-		jbctl_earlyboot(serverPort, "internal", "fakelib", "mount", NULL);
-		jbserver_local_stop();
-
-		// Note down that the jailbreak was hidden
-		// So that after the userspace reboot, we can unmount fakelib again
-		setenv("DOPAMINE_IS_HIDDEN", "1", true);
-	}
 }
 
 int __posix_spawn_orig_wrapper(pid_t *restrict pid, const char *restrict path,
@@ -78,9 +58,11 @@ int __posix_spawn_hook(pid_t *restrict pid, const char *restrict path,
 			// Mainly so we don't lock up while spawning boomerang
 			gInEarlyBoot = true;
 
-			// If the jailbreak is currently hidden, fakelib is not mounted
-			// It needs to be mounted to regain launchd code execution after the userspace reboot
-			ensure_fakelib_mounted();
+			// If the jailbreak is currently hidden, dyld is stock
+			// It needs to be redirected to regain launchd code execution after the userspace reboot
+			if (jbinfo(isHidden)) {
+				apply_dyld_switcheroo();
+			}
 
 #if LOG_PROCESS_LAUNCHES
 			FILE *f = fopen("/var/mobile/launch_log.txt", "a");
