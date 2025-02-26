@@ -222,7 +222,7 @@ int csops_audittoken_hook(pid_t pid, unsigned int ops, void *useraddr, size_t us
 
 bool should_enable_tweaks(void)
 {
-	if (access(JBROOT_PATH("/basebin/.safe_mode"), F_OK) == 0) {
+	if (access("/basebin/.safe_mode", F_OK) == 0) {
 		return false;
 	}
 
@@ -337,10 +337,10 @@ __attribute__((constructor)) static void initializer(void)
 		if (!strcmp(gExecutablePath, "/usr/sbin/cfprefsd") ||
 			!strcmp(gExecutablePath, "/System/Library/CoreServices/SpringBoard.app/SpringBoard") ||
 			!strcmp(gExecutablePath, "/usr/libexec/lsd")) {
-			dlopen(JBROOT_PATH("/basebin/rootlesshooks.dylib"), RTLD_NOW);
+			// dlopen(JBROOT_PATH("/basebin/rootlesshooks.dylib"), RTLD_NOW);
 		}
 		else if (!strcmp(gExecutablePath, "/usr/libexec/watchdogd")) {
-			dlopen(JBROOT_PATH("/basebin/watchdoghook.dylib"), RTLD_NOW);
+			dlopen("/basebin/watchdoghook.dylib", RTLD_NOW);
 		}
 
 		// ptrace hook to allow attaching a debugger to processes that systemhook did not inject into
@@ -369,7 +369,7 @@ __attribute__((constructor)) static void initializer(void)
 		// Load tweaks if desired
 		// We can hardcode /var/jb here since if it doesn't exist, loading TweakLoader.dylib is not going to work anyways
 		if (should_enable_tweaks()) {
-			const char *tweakLoaderPath = "/var/jb/usr/lib/TweakLoader.dylib";
+			const char *tweakLoaderPath = "/usr/lib/TweakLoader.dylib";
 			if (access(tweakLoaderPath, F_OK) == 0) {
 				void *tweakLoaderHandle = dlopen(tweakLoaderPath, RTLD_NOW);
 				if (tweakLoaderHandle != NULL) {

@@ -90,35 +90,35 @@ int jbctl_handle_internal(const char *command, int argc, char* argv[])
 		return 0;
 	}
 	else if (!strcmp(command, "fakelib_init")) {
-		NSString *basebinPath = JBROOT_PATH(@"/basebin");
-		NSString *fakelibPath = JBROOT_PATH(@"/basebin/.fakelib");
-		printf("Initalizing fakelib...\n");
-
-		// Copy /usr/lib to /var/jb/basebin/.fakelib
-		[[NSFileManager defaultManager] removeItemAtPath:fakelibPath error:nil];
-		[[NSFileManager defaultManager] createDirectoryAtPath:fakelibPath withIntermediateDirectories:YES attributes:nil error:nil];
-		carbonCopy(@"/usr/lib", fakelibPath);
-
 		// Backup and patch dyld
-		NSString *dyldBackupPath = JBROOT_PATH(@"/basebin/.dyld.orig");
-		NSString *dyldPatchPath = JBROOT_PATH(@"/basebin/.dyld.patched");
-		carbonCopy(@"/usr/lib/dyld", dyldBackupPath);
-		carbonCopy(@"/usr/lib/dyld", dyldPatchPath);
+		NSString *dyldBackupPath = @"/basebin/.dyld.orig";
+		NSString *dyldPatchPath = @"/basebin/.dyld.patched";
+		carbonCopy(@"/cores/usr/lib/dyld", dyldBackupPath);
+		carbonCopy(@"/cores/usr/lib/dyld", dyldPatchPath);
 		apply_dyld_patch(dyldPatchPath.fileSystemRepresentation);
 		resign_file(dyldPatchPath, YES);
 
 		// Copy systemhook to fakelib
-		carbonCopy(JBROOT_PATH(@"/basebin/systemhook.dylib"), JBROOT_PATH(@"/basebin/.fakelib/systemhook.dylib"));
+		carbonCopy(@"/basebin/systemhook.dylib", @"/usr/lib/systemhook.dylib");
 
 		// Replace dyld in fakelib with patched dyld
-		NSString *fakelibDyldPath = [fakelibPath stringByAppendingPathComponent:@"dyld"];
-		[[NSFileManager defaultManager] removeItemAtPath:fakelibDyldPath error:nil];
-		carbonCopy(dyldPatchPath, JBROOT_PATH(@"/basebin/.fakelib/dyld"));
+		mkdir("/usr/lib/dopamineek", 0755);
+		carbonCopy(dyldBackupPath, @"/usr/lib/dopamineek/dyld");
+		typedef struct tmpfs_mount_args {
+			uint64_t max_pages;
+			uint64_t max_nodes;
+			uint64_t case_insensitive;
+		} tmpfs_mount_args_t;
+		struct tmpfs_mount_args arg = {.max_pages = 128, .max_nodes = UINT8_MAX, .case_insensitive = 0};
+		mount_unsandboxed("tmpfs", "/usr/lib/dopamineek", 0, &arg);
+		carbonCopy(dyldPatchPath, @"/usr/lib/dopamineek/dyld");
+		unlink("/usr/lib/dyld");
+		symlink("/usr/lib/dopamineek/dyld", "/usr/lib/dyld");
 		return 0;
 	}
 	else if (!strcmp(command, "fakelib_mount")) {
 		printf("Applying mount...\n");
-		return mount_unsandboxed("bindfs", "/usr/lib", MNT_RDONLY, (void *)JBROOT_PATH("/basebin/.fakelib"));
+		return mount_unsandboxed("bindfs", "/usr/lib", 0, (void *)"/basebin/.fakelib");
 	}
 	else if (!strcmp(command, "startup")) {
 		ensureProtectionActive();
@@ -128,12 +128,12 @@ int jbctl_handle_internal(const char *command, int argc, char* argv[])
 			CFUserNotificationDisplayAlert(0, 2/*kCFUserNotificationCautionAlertLevel*/, NULL, NULL, NULL, CFSTR("Watchdog Timeout"), (__bridge CFStringRef)printMessage, NULL, NULL, NULL, NULL);
 			free(panicMessage);
 		}
-		exec_cmd(JBROOT_PATH("/usr/bin/uicache"), "-a", NULL);
+		exec_cmd("/usr/bin/uicache", "-a", NULL);
 	}
 	else if (!strcmp(command, "install_pkg")) {
 		if (argc > 1) {
 			extern char **environ;
-			const char *dpkg = JBROOT_PATH("/usr/bin/dpkg");
+			const char *dpkg = "/usr/bin/dpkg";
 			int r = execve(dpkg, (char *const *)(const char *[]){dpkg, "-i", argv[1], NULL}, environ);
 			return r;
 		}

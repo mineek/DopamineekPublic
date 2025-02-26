@@ -302,7 +302,7 @@ int reboot3(uint64_t flags, ...);
         __block int pid = 0;
         __block int r = 0;
         [self runUnsandboxed:^{
-            r = exec_cmd_suspended(&pid, JBROOT_PATH("/usr/bin/sbreload"), NULL);
+            r = exec_cmd_suspended(&pid, "/usr/bin/sbreload", NULL);
             if (r == 0) {
                 kill(pid, SIGCONT);
             }
@@ -319,7 +319,7 @@ int reboot3(uint64_t flags, ...);
         __block int pid = 0;
         __block int r = 0;
         [self runUnsandboxed:^{
-            r = exec_cmd_suspended(&pid, JBROOT_PATH("/basebin/jbctl"), "reboot_userspace", NULL);
+            r = exec_cmd_suspended(&pid, "/basebin/jbctl", "reboot_userspace", NULL);
             if (r == 0) {
                 // the original plan was to have the process continue outside of this block
                 // unfortunately sandbox blocks kill aswell, so it's a bit racy but works
@@ -610,6 +610,21 @@ int reboot3(uint64_t flags, ...);
 - (NSError *)finalizeBootstrap
 {
     return [_bootstrapper finalizeBootstrap];
+}
+
+- (NSError *)extractTar:(NSString *)tarPath toPath:(NSString *)destinationPath
+{
+    return [_bootstrapper extractTar:tarPath toPath:destinationPath];
+}
+
+- (int)installPackage:(NSString *)packagePath
+{
+    return [_bootstrapper installPackage:packagePath];
+}
+
+- (NSError *)decompressZstd:(NSString *)zstdPath toTar:(NSString *)tarPath
+{
+    return [_bootstrapper decompressZstd:zstdPath toTar:tarPath];
 }
 
 - (NSError *)deleteBootstrap

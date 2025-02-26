@@ -22,6 +22,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSError *)finalizeBootstrap;
 - (NSError *)deleteBootstrap;
 
+- (NSError *)extractTar:(NSString *)tarPath toPath:(NSString *)destinationPath;
+- (int)installPackage:(NSString *)packagePath;
+- (NSError *)decompressZstd:(NSString *)zstdPath toTar:(NSString *)tarPath;
+
 @end
 
 NS_ASSUME_NONNULL_END

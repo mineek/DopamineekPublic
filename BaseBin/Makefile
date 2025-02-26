@@ -61,6 +61,7 @@ watchdoghook: .build .include libjailbreak
 	@cp watchdoghook/watchdoghook.dylib .build
 
 rootlesshooks: .build .include libjailbreak
+	$(MAKE) -C rootlesshooks clean
 	$(MAKE) -C rootlesshooks
 	@cp rootlesshooks/.theos/obj/rootlesshooks.dylib .build
 

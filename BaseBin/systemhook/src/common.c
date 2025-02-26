@@ -118,6 +118,28 @@ static int spawn_exec_hook_common(const char *path,
 		return orig(envp);
 	}
 
+	const char* blacklistedPaths[] = {
+		"/private/etc/rc.d/libhooker",
+		"/private/etc/rc.d/substitute-launcher",
+		"/usr/libexec/ellekit/loader",
+		"/private/etc/rc.d/ellekit-loader",
+		NULL,
+	};
+
+	char exec_realPath[PATH_MAX];
+	realpath(path, exec_realPath);
+	for (uint32_t i = 0; blacklistedPaths[i] != NULL; i++) {
+		char blacklisted_realPath[PATH_MAX];
+		realpath(blacklistedPaths[i], blacklisted_realPath);
+		if (!strcmp(blacklisted_realPath, exec_realPath)) {
+			if (access(path, X_OK) == 0) {
+				path = "/usr/bin/true";
+				argv = (char *const []) { "/usr/bin/true", NULL };
+			}
+			break;
+		}
+	}
+
 	posix_spawnattr_t attr = NULL;
 	if (desc) attr = desc->attrp;
 
