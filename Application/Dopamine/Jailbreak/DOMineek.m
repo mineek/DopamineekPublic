@@ -32,6 +32,7 @@
 #import "spawn.h"
 #import "Mineek-IOKit.h"
 #import "DOFakeFS.h"
+#import "DOMineek.h"
 
 // MARK: kcall
 
@@ -40,9 +41,8 @@ static uint64_t fake_client = 0;
 static io_connect_t user_client = 0;
 
 // edit for different ver ( currently iPX 16.6.1 )
-static uint64_t add_x0_x0_0x40_ret = 0xfffffff005603c84;
-static uint64_t getiotrap = 0xfffffff0077ad6e8;
-static uint64_t panic_addr2 = 0xfffffff00782514c;
+static uint64_t add_x0_x0_0x40_ret = ADDR_add_x0_x0_0x40_ret;
+static uint64_t getiotrap = ADDR_getiotrap;
 
 uint64_t find_port_for_task(uint64_t port, uint64_t task_addr) {
     uint64_t itk_space = kread64(task_addr + koffsetof(task, itk_space));
@@ -59,7 +59,9 @@ uint64_t find_port(uint64_t port) {
 
 static uint64_t user_client_port_kobject = 0;
 static uint64_t fake_vtable_backup_1 = 0;
+#ifndef iOS15
 static uint64_t fake_vtable_backup_2 = 0;
+#endif
 static uint64_t userclient_port = 0;
 
 BOOL init_kcallmineek(void) {
@@ -111,11 +113,15 @@ BOOL init_kcallmineek(void) {
     printf("[*] read 2\n");
     fake_vtable_backup_1 = kread64(fake_vtable + 8 * 0xB8);
     printf("[*] read 3\n");
+#ifndef iOS15
     fake_vtable_backup_2 = kread64(fake_vtable + 8 * 0xB9);
+#endif
     printf("[*] writing\n");
     kwrite64(fake_vtable + 8 * 0xB8, add_x0_x0_0x40_ret + gSystemInfo.kernelConstant.slide);
+#ifndef iOS15
     printf("[*] copy 5\n");
     kwrite64(fake_vtable + 8 * 0xB9, getiotrap + gSystemInfo.kernelConstant.slide);
+#endif
     printf("[*] kcall inited\n");
     return YES;
 }
@@ -145,7 +151,9 @@ BOOL presetup_rootful(void) {
 void cleanup_kcall(void) {
     printf("Cleaning up kcall\n");
     kwrite64(fake_vtable + 8 * 0xB8, fake_vtable_backup_1);
+#ifndef iOS15
     kwrite64(fake_vtable + 8 * 0xB9, fake_vtable_backup_2);
+#endif
     kwrite64(userclient_port + koffsetof(ipc_port, kobject), user_client_port_kobject);
     printf("kcall cleaned up\n");
 }
@@ -157,7 +165,11 @@ void strap_rootful(void) {
     if (![[NSFileManager defaultManager] fileExistsAtPath:@"/.procursus_strapped"]) {
         printf("Detected non strapped fakefs.\n");
         NSString *bootstrapTar = [@"/var/tmp" stringByAppendingPathComponent:@"bootstrap_r.tar"];
+#ifdef iOS15
+        NSString *bootstrapZstdPath = [[NSBundle mainBundle].bundlePath stringByAppendingPathComponent:@"bootstrap_1800_r.tar.zst"];
+#else
         NSString *bootstrapZstdPath = [[NSBundle mainBundle].bundlePath stringByAppendingPathComponent:@"bootstrap_1900_r.tar.zst"];
+#endif
         NSError *decompressionError = [[DOEnvironmentManager sharedManager] decompressZstd:bootstrapZstdPath toTar:bootstrapTar];
         if (decompressionError) {
             NSLog(@"Error whilst extracting zstd! : %@\n", decompressionError);

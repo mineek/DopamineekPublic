@@ -35,11 +35,11 @@
 #import "DOMineek.h"
 
 uint64_t vfs_context_kernel(void) {
-    return gSystemInfo.kernelConstant.slide + 0xfffffff00713f418;
+    return gSystemInfo.kernelConstant.slide + ADDR_vfs_context_kernel;
 }
 
 uint64_t vnode_lookup(const char *path, int flags, uint64_t *vnode, uint64_t vfs_context) {
-    uint64_t vnode_lookup = gSystemInfo.kernelConstant.slide + 0xfffffff00734c270;
+    uint64_t vnode_lookup = gSystemInfo.kernelConstant.slide + ADDR_vnode_lookup;
     uint64_t out;
     uint64_t out_vnode_mem;
     kalloc(&out_vnode_mem, sizeof(uint64_t));
@@ -52,7 +52,7 @@ uint64_t vnode_lookup(const char *path, int flags, uint64_t *vnode, uint64_t vfs
 }
 
 uint64_t vnode_lookupat(const char *path, int flags, uint64_t *vnode, uint64_t ctx, uint64_t start_dvp) {
-    uint64_t vnode_lookupat = gSystemInfo.kernelConstant.slide + 0xfffffff00734c278;
+    uint64_t vnode_lookupat = gSystemInfo.kernelConstant.slide + ADDR_vnode_lookupat;
     uint64_t out;
     uint64_t out_vnode_mem;
     kalloc(&out_vnode_mem, sizeof(uint64_t));
@@ -70,16 +70,16 @@ uint64_t vnode_vtype(uint64_t vnode) {
 }
 
 uint64_t vnode_ref_ext(uint64_t vp, int fmode, int flags) {
-    uint64_t vnode_ref_ext = gSystemInfo.kernelConstant.slide + 0xfffffff00734bcd4;
+    uint64_t vnode_ref_ext = gSystemInfo.kernelConstant.slide + ADDR_vnode_ref_ext;
     uint64_t out;
     uint64_t args[] = {vp, fmode, flags};
     out = kcallmineek(vnode_ref_ext, vp, fmode, flags, 0, 0, 0, 0);
     return out;
 }
 
-#define rootvnode_addr (gSystemInfo.kernelConstant.slide + 0xfffffff0078b7d10)
-#define rootvp_addr (gSystemInfo.kernelConstant.slide + 0xfffffff0078b7d90)
-#define rootdev_addr (gSystemInfo.kernelConstant.slide + 0xfffffff0078b7d3c)
+#define rootvnode_addr (gSystemInfo.kernelConstant.slide + ADDR_rootvnode_addr)
+#define rootvp_addr (gSystemInfo.kernelConstant.slide + ADDR_rootvp_addr)
+#define rootdev_addr (gSystemInfo.kernelConstant.slide + ADDR_rootdev_addr)
 
 void set_rootvnode(uint64_t new_rootvnode) {
     printf("Setting rootvnode to 0x%llx\n", new_rootvnode);
@@ -101,7 +101,7 @@ void vfs_setmntsystem(uint64_t mp) {
 }
 
 int vnode_put(uint64_t vp) {
-    uint64_t vnode_put = gSystemInfo.kernelConstant.slide + 0xfffffff007349270;
+    uint64_t vnode_put = gSystemInfo.kernelConstant.slide + ADDR_vnode_put;
     uint64_t out;
     uint64_t args[] = {vp};
     out = kcallmineek(vnode_put, vp, 0, 0, 0, 0, 0, 0);
@@ -109,7 +109,7 @@ int vnode_put(uint64_t vp) {
 }
 
 int vnode_rele(uint64_t vp) {
-    uint64_t vnode_rele = gSystemInfo.kernelConstant.slide + 0xfffffff00734c194;
+    uint64_t vnode_rele = gSystemInfo.kernelConstant.slide + ADDR_vnode_rele;
     uint64_t out;
     uint64_t args[] = {vp};
     out = kcallmineek(vnode_rele, vp, 0, 0, 0, 0, 0, 0);
@@ -336,11 +336,19 @@ done:
 
 void enter_fakefs(void) {
     printf("Mounting fakefs\n");
+#ifdef iOS15
+    if (access("/dev/disk0s1s8", 0) != 0xffffffff) {
+        printf("Found /dev/disk0s1s8\n");
+    } else {
+        printf("Did not found /dev/disk0s1s8\n");
+    }
+#else
     if (access("/dev/disk1s8", 0) != 0xffffffff) {
         printf("Found /dev/disk1s8\n");
     } else {
         printf("Did not found /dev/disk1s8\n");
     }
+#endif
     if ((access("/private/var/mnt", 0) == 0xffffffff && mkdir("/private/var/mnt", 0x1ff) == 0xffffffff)) {
         printf("mkdir /private/var/mnt failed\n");
     }
@@ -349,7 +357,11 @@ void enter_fakefs(void) {
             printf("mkdir /private/var/mnt/fake failed\n");
         }
     }
+#ifdef iOS15
+    int r = exec_cmd("/sbin/mount_apfs", "/dev/disk0s1s8", "/private/var/mnt/fake", 0, 0);
+#else
     int r = exec_cmd("/sbin/mount_apfs", "/dev/disk1s8", "/private/var/mnt/fake", 0, 0);
+#endif
     if (r != 0) {
         printf("Failed to mount fakefs\n");
     }
